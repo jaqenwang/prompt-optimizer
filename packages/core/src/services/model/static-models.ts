@@ -65,6 +65,26 @@ export function createStaticModels(envVars: {
       provider: 'zhipu',
       llmParams: {}
     },
+    ollama: {
+      name: 'Ollama',
+      baseURL: 'http://10.238.181.135:11434/v1',
+      models: ['qwen3:8b'],
+      defaultModel: 'qwen3:8b',
+      apiKey: '',
+      enabled: true,
+      provider: 'custom',
+      llmParams: {}
+    },
+    qgenie: {
+      name: 'QGenie',
+      baseURL: 'https://qgenie-chat.qualcomm.com/v1',
+      models: ['Pro'],
+      defaultModel: 'Pro',
+      apiKey: '',
+      enabled: true,
+      provider: 'custom',
+      llmParams: {}
+    },
     custom: {
       name: 'Custom',
       baseURL: envVars.CUSTOM_API_BASE_URL || 'http://localhost:11434/v1',
