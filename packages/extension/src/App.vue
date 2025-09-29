@@ -397,7 +397,7 @@ hljs.registerLanguage('json', jsonLang)
 
   // 6. 创建所有必要的引用
   const promptService = shallowRef<IPromptService | null>(null)
-  const selectedOptimizationMode = ref<OptimizationMode>('system')
+  const selectedOptimizationMode = ref<OptimizationMode>('user')
   const showDataManager = ref(false)
   const optimizeModelSelect = ref(null)
   const testPanelRef = ref(null)

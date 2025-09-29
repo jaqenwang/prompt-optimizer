@@ -72,7 +72,7 @@ export function createStaticModels(envVars: {
       defaultModel: 'qwen3:8b',
       apiKey: '',
       enabled: true,
-      provider: 'custom',
+      provider: 'QCOM',
       llmParams: {}
     },
     qgenie: {
@@ -82,7 +82,7 @@ export function createStaticModels(envVars: {
       defaultModel: 'Pro',
       apiKey: '',
       enabled: true,
-      provider: 'custom',
+      provider: 'QCOM',
       llmParams: {}
     },
     custom: {

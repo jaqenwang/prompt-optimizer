@@ -1,64 +1,62 @@
+# ======================
+# Stage 1: Base with pnpm
+# ======================
 FROM node:20-slim AS base
 ENV PNPM_HOME="/pnpm"
 ENV PATH="$PNPM_HOME:$PATH"
-RUN npm install -g corepack@latest && corepack enable
+RUN corepack enable && corepack prepare pnpm@latest --activate
 
+# ======================
+# Stage 2: Build frontend & MCP
+# ======================
 FROM base AS build
-COPY . /app
 WORKDIR /app
+COPY . .
+# 安装依赖并构建（使用 --frozen-lockfile 确保一致性）
 RUN --mount=type=cache,id=pnpm,target=/pnpm/store pnpm install --frozen-lockfile
-RUN pnpm run build
-RUN pnpm mcp:build
+RUN pnpm run build          # 构建 Web 前端 (dist)
+RUN pnpm mcp:build          # 构建 MCP 服务 (dist)
 
+# ======================
+# Stage 3: Final runtime image
+# ======================
 FROM nginx:stable-alpine
-# 安装Node.js、htpasswd工具、dos2unix和supervisor
-RUN apk add --no-cache apache2-utils dos2unix supervisor nodejs npm gettext curl
 
-# 安装pnpm
-RUN npm install -g pnpm
+# 安装必要工具（全部来自 Alpine 本地包，无需联网）
+RUN apk add --no-cache \
+    apache2-utils \          # htpasswd
+    dos2unix \               # 处理 Windows 行尾符
+    supervisor \             # 进程管理
+    curl \                   # healthcheck 用
+    nodejs                   # 运行 MCP 服务（Alpine 自带 npm，无需额外装 pnpm）
 
-# 复制Nginx配置
+# 复制 Nginx 配置
 COPY docker/nginx.conf /etc/nginx/conf.d/default.conf
 
-# 复制Web应用
+# 复制构建产物（只复制必要的 dist 和配置）
 COPY --from=build /app/packages/web/dist /usr/share/nginx/html
 
-# 复制MCP服务器
+# MCP 服务：只复制 dist + package.json + 启动脚本
 COPY --from=build /app/packages/mcp-server/dist /app/mcp-server/dist
 COPY --from=build /app/packages/mcp-server/package.json /app/mcp-server/
 COPY --from=build /app/packages/mcp-server/preload-env.js /app/mcp-server/
 COPY --from=build /app/packages/mcp-server/preload-env.cjs /app/mcp-server/
 
-# 复制Node Proxy服务
+# Node Proxy（假设已构建到 /app/node-proxy）
 COPY --from=build /app/node-proxy /app/node-proxy
-# 复制构建后的包到正确位置
-COPY --from=build /app/packages /app/packages
-# 复制必要的node_modules
-COPY --from=build /app/node_modules /app/node_modules
 
-# 设置默认环境变量（向前兼容）
-ENV NGINX_PORT=80
-
-# 设置MCP服务器工作目录
+# 设置工作目录
 WORKDIR /app/mcp-server
 
-# 复制并设置启动脚本
+# 复制启动脚本
 COPY docker/generate-config.sh /docker-entrypoint.d/40-generate-config.sh
 COPY docker/generate-auth.sh /docker-entrypoint.d/30-generate-auth.sh
 COPY docker/supervisord.conf /etc/supervisor/conf.d/supervisord.conf
 COPY docker/start-services.sh /start-services.sh
 
-# 确保脚本有执行权限
-RUN chmod +x /docker-entrypoint.d/40-generate-config.sh
-RUN chmod +x /docker-entrypoint.d/30-generate-auth.sh
-RUN chmod +x /start-services.sh
-
-# 转换可能的Windows行尾符为Unix格式
-RUN dos2unix /docker-entrypoint.d/40-generate-config.sh
-RUN dos2unix /docker-entrypoint.d/30-generate-auth.sh
-RUN dos2unix /start-services.sh
+# 修复权限和行尾符
+RUN chmod +x /docker-entrypoint.d/*.sh /start-services.sh \
+ && dos2unix /docker-entrypoint.d/*.sh /start-services.sh
 
 EXPOSE 80
-
-# 使用自定义启动脚本
 CMD ["sh", "/start-services.sh"]
